@@ -1,0 +1,66 @@
+name: Deploy Contabo
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Git revision to deploy
+        required: false
+        default: main
+  pull_request:
+    paths:
+      - deploy/**
+      - .github/workflows/deploy-contabo.yml
+  push:
+    branches: [main]
+    paths:
+      - deploy/**
+      - .github/workflows/deploy-contabo.yml
+
+concurrency:
+  group: contabo-production-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose
+        run: docker compose --env-file deploy/.env.example -f deploy/compose.yaml config --quiet
+      - name: Check shell scripts
+        run: |
+          bash -n deploy/scripts/bootstrap-ubuntu.sh
+          bash -n deploy/scripts/deploy.sh
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          REVISION: ${{ github.event.inputs.revision || github.sha }}
+        with:
+          host: ${{ secrets.CONTABO_HOST }}
+          username: ${{ secrets.CONTABO_USER }}
+          key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.CONTABO_SSH_PORT }}
+          envs: REVISION
+          command_timeout: 25m
+          script_stop: true
+          script: |
+            set -eu
+            export REVISION
+            runner_dir="$(mktemp -d)"
+            trap 'rm -rf "$runner_dir"' EXIT
+            git clone --filter=blob:none https://github.com/hillstreet-ph/open-model.git "$runner_dir"
+            git -C "$runner_dir" fetch --depth=1 origin "$REVISION"
+            git -C "$runner_dir" checkout --detach FETCH_HEAD
+            bash "$runner_dir/deploy/scripts/deploy.sh"

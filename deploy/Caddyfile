@@ -1,0 +1,31 @@
+{
+  admin off
+}
+
+{$MODEL_DOMAIN:localhost} {
+  encode zstd gzip
+
+  @api path /api/*
+  handle @api {
+    reverse_proxy ollama:11434 {
+      health_uri /api/tags
+      health_interval 30s
+    }
+  }
+
+  handle / {
+    respond "Open-Model Ollama API" 200
+  }
+
+  header {
+    -Server
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy no-referrer
+  }
+
+  log {
+    output stdout
+    format json
+  }
+}
