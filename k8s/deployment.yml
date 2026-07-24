@@ -1,0 +1,419 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ollama
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+      - name: ollama
+        image: ollama/ollama:latest
+        ports:
+        - containerPort: 11434
+        resources:
+          limits:
+            memory: 12Gi
+            cpu: "8"
+          requests:
+            memory: 2Gi
+            cpu: "2"
+        volumeMounts:
+        - name: ollama-data
+          mountPath: /root/.ollama
+        - name: models
+          mountPath: /workspace/models
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /api/tags
+            port: 11434
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/tags
+            port: 11434
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: ollama-data
+        persistentVolumeClaim:
+          claimName: ollama-data-pvc
+      - name: models
+        configMap:
+          name: ollama-models-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-svc
+  namespace: ollama
+  labels:
+    app: ollama
+spec:
+  selector:
+    app: ollama
+  ports:
+  - port: 11434
+    targetPort: 11434
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-connect
+  namespace: ollama
+  labels:
+    app: open-connect
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: open-connect
+  template:
+    metadata:
+      labels:
+        app: open-connect
+    spec:
+      containers:
+      - name: open-connect
+        image: open-connect:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: OLLAMA_URL
+          value: "http://ollama-svc.ollama.svc.cluster.local:11434"
+        - name: PORT
+          value: "3000"
+        resources:
+          limits:
+            memory: 2Gi
+            cpu: "2"
+          requests:
+            memory: 512Mi
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-connect-svc
+  namespace: ollama
+  labels:
+    app: open-connect
+spec:
+  selector:
+    app: open-connect
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-command
+  namespace: ollama
+  labels:
+    app: open-command
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: open-command
+  template:
+    metadata:
+      labels:
+        app: open-command
+    spec:
+      containers:
+      - name: open-command
+        image: open-command:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: OLLAMA_URL
+          value: "http://ollama-svc.ollama.svc.cluster.local:11434"
+        - name: PORT
+          value: "5000"
+        resources:
+          limits:
+            memory: 2Gi
+            cpu: "2"
+          requests:
+            memory: 512Mi
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-command-svc
+  namespace: ollama
+  labels:
+    app: open-command
+spec:
+  selector:
+    app: open-command
+  ports:
+  - port: 5000
+    targetPort: 5000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-worker
+  namespace: ollama
+  labels:
+    app: open-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: open-worker
+  template:
+    metadata:
+      labels:
+        app: open-worker
+    spec:
+      containers:
+      - name: open-worker
+        image: open-worker:latest
+        ports:
+        - containerPort: 6000
+        env:
+        - name: OLLAMA_URL
+          value: "http://ollama-svc.ollama.svc.cluster.local:11434"
+        - name: PORT
+          value: "6000"
+        resources:
+          limits:
+            memory: 2Gi
+            cpu: "2"
+          requests:
+            memory: 512Mi
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 6000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 6000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-worker-svc
+  namespace: ollama
+  labels:
+    app: open-worker
+spec:
+  selector:
+    app: open-worker
+  ports:
+  - port: 6000
+    targetPort: 6000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: ollama
+  labels:
+    app: orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+    spec:
+      containers:
+      - name: orchestrator
+        image: orchestrator:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: OLLAMA_URL
+          value: "http://ollama-svc.ollama.svc.cluster.local:11434"
+        - name: OPEN_CONNECT_URL
+          value: "http://open-connect-svc.ollama.svc.cluster.local:3000"
+        - name: OPEN_COMMAND_URL
+          value: "http://open-command-svc.ollama.svc.cluster.local:5000"
+        - name: OPEN_WORKER_URL
+          value: "http://open-worker-svc.ollama.svc.cluster.local:6000"
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ollama-secrets
+              key: supabase_url
+        resources:
+          limits:
+            memory: 1Gi
+            cpu: "1"
+          requests:
+            memory: 256Mi
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-svc
+  namespace: ollama
+  labels:
+    app: orchestrator
+spec:
+  selector:
+    app: orchestrator
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitor
+  namespace: ollama
+  labels:
+    app: monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monitor
+  template:
+    metadata:
+      labels:
+        app: monitor
+    spec:
+      containers:
+      - name: monitor
+        image: ollama-monitor:latest
+        ports:
+        - containerPort: 9090
+        env:
+        - name: OLLAMA_URL
+          value: "http://ollama-svc.ollama.svc.cluster.local:11434"
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ollama-secrets
+              key: supabase_url
+        resources:
+          limits:
+            memory: 512Mi
+            cpu: "500m"
+          requests:
+            memory: 128Mi
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitor-svc
+  namespace: ollama
+  labels:
+    app: monitor
+spec:
+  selector:
+    app: monitor
+  ports:
+  - port: 9090
+    targetPort: 9090
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-data-pvc
+  namespace: ollama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ollama-models-config
+  namespace: ollama
+data:
+  models.json: |
+    - name: llama3
+      size: 4.7GB
+    - name: codellama
+      size: 3.4GB
+    - name: mistral
+      size: 4.1GB
+    - name: phi3
+      size: 2.3GB

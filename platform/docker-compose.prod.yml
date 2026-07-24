@@ -1,0 +1,212 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./models:/workspace/models:ro
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+        reservations:
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:11434/api/tags > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+
+  open-connect:
+    image: open-connect:latest
+    container_name: open-connect
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - WORKERS=4
+      - PORT=3000
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  open-command:
+    image: open-command:latest
+    container_name: open-command
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - WORKERS=4
+      - PORT=5000
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  open-worker:
+    image: open-worker:latest
+    container_name: open-worker
+    restart: unless-stopped
+    ports:
+      - "6000:6000"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - WORKERS=4
+      - PORT=6000
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  orchestrator:
+    build:
+      context: ../
+      dockerfile: platform/Dockerfile
+    container_name: orchestrator
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      open-connect:
+        condition: service_healthy
+      open-command:
+        condition: service_healthy
+      open-worker:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - OPEN_CONNECT_URL=http://open-connect:3000
+      - OPEN_COMMAND_URL=http://open-command:5000
+      - OPEN_WORKER_URL=http://open-worker:6000
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+    volumes:
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  cross-platform-bridge:
+    build:
+      context: ../
+      dockerfile: platform/Dockerfile
+    container_name: cross-bridge
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - OLLAMA_URL=http://ollama:11434
+
+  task-pipeline:
+    build:
+      context: ../
+      dockerfile: platform/Dockerfile
+    container_name: task-pipeline
+    restart: unless-stopped
+    ports:
+      - "8444:8444"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - OLLAMA_URL=http://ollama:11434
+
+  swarm-coordinator:
+    build:
+      context: ../
+      dockerfile: platform/Dockerfile
+    container_name: swarm-coordinator
+    restart: unless-stopped
+    ports:
+      - "8445:8445"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - OLLAMA_URL=http://ollama:11434
+
+  monitor:
+    image: ollama-monitor:latest
+    container_name: ollama-monitor
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - OLLAMA_URL=http://ollama:11434
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"

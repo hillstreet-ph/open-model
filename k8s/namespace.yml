@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ollama
+  labels:
+    name: ollama
+    managed-by: ollama-infrastructure
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ollama-secrets
+  namespace: ollama
+type: Opaque
+data:
+  supabase_url: aHR0cHM6Ly9vbGh0eGlieHl1a2NjaHlobHVxLmNvLw==
