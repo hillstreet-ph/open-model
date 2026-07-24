@@ -1,0 +1,117 @@
+name: Deploy to Contabo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.go'
+      - 'CMakeLists.txt'
+      - 'Dockerfile'
+      - 'cmake/**'
+      - 'llama/**'
+      - 'scripts/contabo/**'
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache-dependency-path: 'go.sum'
+
+      - name: Build Ollama binary
+        run: |
+          go build -o ollama .
+          ls -la ollama
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-binary
+          path: ollama
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: contabo-production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ollama-binary
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Contabo
+        run: |
+          chmod +x ollama
+          scp -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            ollama root@169.58.68.183:/opt/ollama/ollama
+
+      - name: Restart Ollama service
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            root@169.58.68.183 "systemctl restart ollama"
+
+      - name: Verify deployment
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            root@169.58.68.183 "systemctl is-active ollama"
+
+  self-heal:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Health check
+        run: |
+          for i in 1 2 3; do
+            if curl -sf http://169.58.68.183:11434/api/tags > /dev/null 2>&1; then
+              echo "Ollama is healthy after deploy"
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "Health check failed, triggering remediation..."
+          ssh -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            root@169.58.68.183 "systemctl restart ollama && systemctl reset-failed ollama"
+        continue-on-error: true
+
+  sync-models:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+
+      - name: Sync models
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            root@169.58.68.183 "bash /opt/ollama/scripts/contabo/install_models.sh"

@@ -1,0 +1,67 @@
+name: Contabo Server Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      reconfigure:
+        description: 'Reconfigure server from scratch'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify secrets
+        run: |
+          echo "Checking required secrets..."
+          [ -n "${{ secrets.CONTABO_SSH_PRIVATE_KEY }}" ] && echo "  SSH key: OK" || echo "  SSH key: MISSING"
+          [ -n "${{ secrets.CONTABO_CLIENT_ID }}" ] && echo "  Client ID: OK" || echo "  Client ID: MISSING"
+          [ -n "${{ secrets.CONTABO_CLIENT_SECRET }}" ] && echo "  Client Secret: OK" || echo "  Client Secret: MISSING"
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH key on server
+        run: |
+          ssh-copy-id -p 22 root@169.58.68.183 2>/dev/null ||             echo "Note: ssh-copy-id may fail if key is already present; continuing anyway"
+
+      - name: Run initial server setup
+        run: |
+          chmod +x scripts/contabo/setup_server.sh
+          scripts/contabo/setup_server.sh
+        env:
+          SSH_KEY_PATH: /tmp/contabo_key
+
+      - name: Install Contabo CLI
+        run: |
+          chmod +x scripts/contabo/setup_cli.sh
+          scripts/contabo/setup_cli.sh
+
+      - name: Set up cron jobs
+        run: |
+          chmod +x scripts/cron/setup_cron.sh
+          scripts/cron/setup_cron.sh
+
+      - name: Install models
+        run: |
+          chmod +x scripts/contabo/install_models.sh
+          scripts/contabo/install_models.sh
+
+      - name: Set up self-healing monitor
+        run: |
+          chmod +x scripts/contabo/setup_monitor.sh
+          scripts/contabo/setup_monitor.sh
+
+      - name: Verify deployment
+        run: |
+          ssh -o StrictHostKeyChecking=no -p 22 root@169.58.68.183 "systemctl is-active ollama ollama-monitor cron" || true

@@ -1,0 +1,104 @@
+name: Deploy Contabo Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/contabo/**'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/deploy-contabo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup-ssh-key:
+    runs-on: ubuntu-latest
+    outputs:
+      ssh-key-setup: ${{ steps.ssh-setup.outputs.key-present }}
+    steps:
+      - name: Verify SSH key secret exists
+        id: ssh-setup
+        run: |
+          if [ -n "${{ secrets.CONTABO_SSH_PRIVATE_KEY }}" ]; then
+            echo "key-present=true" >> $GITHUB_OUTPUT
+          else
+            echo "key-present=false" >> $GITHUB_OUTPUT
+            echo "WARNING: CONTABO_SSH_PRIVATE_KEY secret not set"
+          fi
+
+  server-setup:
+    needs: setup-ssh-key
+    if: needs.setup-ssh-key.outputs.ssh-key-setup == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run server setup
+        run: |
+          chmod +x scripts/contabo/setup_server.sh
+          scripts/contabo/setup_server.sh
+        env:
+          SSH_KEY: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+
+  deploy:
+    needs: [setup-ssh-key, server-setup]
+    runs-on: ubuntu-latest
+    if: needs.setup-ssh-key.outputs.ssh-key-setup == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+
+      - name: Build Ollama
+        run: |
+          go build -o ollama .
+          ls -la ollama
+
+      - name: Deploy binary to Contabo
+        run: |
+          scp -o StrictHostKeyChecking=no             ollama root@169.58.68.183:/opt/ollama/ollama
+
+      - name: Restart Ollama
+        run: |
+          ssh -o StrictHostKeyChecking=no             root@169.58.68.183 "systemctl restart ollama"
+
+      - name: Verify
+        run: |
+          sleep 5
+          ssh -o StrictHostKeyChecking=no             root@169.58.68.183 "curl -s http://localhost:11434/api/tags | head -c 200"
+
+  health-check:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Ollama Health Check
+        run: |
+          for i in 1 2 3; do
+            if curl -sf http://169.58.68.183:11434/api/tags > /dev/null 2>&1; then
+              echo "Ollama is healthy"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "Health check failed, attempting remote restart..."
+          ssh -o StrictHostKeyChecking=no             -i ~/.ssh/id_ed25519             root@169.58.68.183 "systemctl restart ollama" || true
+
+  self-heal:
+    needs: health-check
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Trigger self-heal
+        run: |
+          echo "Self-heal triggered - Ollama service is unhealthy"
+          # The monitor on the server will handle remediation
+          # but we also log the event to Supabase
+          curl -s -X POST "https://olhtxibbyhucxcmhzblq.supabase.co/rest/v1/ollama_events"             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}"             -H "Content-Type: application/json"             -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}"             -d '{"event_type":"self_heal_trigger","container_ip":"169.58.68.183","details":{"reason":"health_check_failed","action":"manual_intervention_required"}}' || true
