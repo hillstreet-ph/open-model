@@ -1,0 +1,78 @@
+{
+  "rotation_policy": {
+    "evaluation_interval_days": 30,
+    "staleness_threshold_requests": 100,
+    "staleness_window_days": 14,
+    "max_models_active": 10,
+    "preferred_models": [
+      "gemma4:latest",
+      "llama3.2:3b",
+      "llama3.2:1b",
+      "qwen2.5:7b",
+      "qwen2.5:1.5b",
+      "mistral:7b",
+      "codellama:7b"
+    ],
+    "rotation_order": [
+      "gemma4:latest",
+      "llama3.2:3b",
+      "llama3.2:1b",
+      "qwen2.5:7b",
+      "qwen2.5:1.5b",
+      "mistral:7b",
+      "codellama:7b"
+    ],
+    "auto_pull_new": true,
+    "auto_remove_deprecated": false,
+    "archive_before_removal": true
+  },
+  "validity_checks": {
+    "health_check_interval_minutes": 5,
+    "max_consecutive_failures": 3,
+    "response_time_threshold_ms": 5000,
+    "memory_usage_threshold_percent": 90,
+    "disk_usage_threshold_percent": 85,
+    "cpu_usage_threshold_percent": 80
+  },
+  "auto_rotation": {
+    "enabled": true,
+    "schedule": "0 3 * * *",
+    "dry_run": false,
+    "notification_webhook": "https://olhtxibbyhucxcmhzblq.supabase.co/rest/v1/ollama_events"
+  },
+  "hermes_agents": {
+    "enabled": true,
+    "agents": [
+      {
+        "name": "hermes-health",
+        "role": "health_monitor",
+        "interval_minutes": 5,
+        "priority": 1
+      },
+      {
+        "name": "hermes-rotate",
+        "role": "model_rotator",
+        "interval_hours": 24,
+        "priority": 2
+      },
+      {
+        "name": "hermes-fix",
+        "role": "self_healer",
+        "triggers": ["health_check_failed", "disk_full", "memory_pressure"],
+        "priority": 0
+      },
+      {
+        "name": "hermes-sync",
+        "role": "data_sync",
+        "interval_hours": 6,
+        "priority": 3
+      },
+      {
+        "name": "hermes-report",
+        "role": "reporting",
+        "schedule": "daily",
+        "priority": 4
+      }
+    ]
+  }
+}

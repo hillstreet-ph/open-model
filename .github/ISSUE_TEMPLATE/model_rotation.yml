@@ -1,0 +1,31 @@
+name: Model Rotation Request
+description: Request a model rotation or report a model issue
+title: '[ROTATION] '
+labels: ['models', 'rotation']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Model Rotation Request
+  - type: textarea
+    id: model
+    attributes:
+      label: Model Name
+      description: The model to rotate (add or remove)
+      placeholder: "e.g., gemma4:latest"
+    validations:
+      required: true
+  - type: dropdown
+    id: action
+    attributes:
+      label: Action
+      options:
+        - Add new model
+        - Remove deprecated model
+        - Update to newer version
+        - Performance evaluation
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason
+      placeholder: "Why is this rotation needed?"

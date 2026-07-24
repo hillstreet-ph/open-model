@@ -1,0 +1,48 @@
+name: Infrastructure Issue
+description: Report an infrastructure issue with the Ollama server or deployment
+title: '[INFRA] '
+labels: ['infra', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Infrastructure Issue Report
+        Please provide details about the infrastructure problem.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the infrastructure issue
+      placeholder: "e.g., Ollama service is not responding on port 11434"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - critical (service down)
+        - high (degraded performance)
+        - medium (minor issue)
+        - low (cosmetic)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction Steps
+      description: Steps to reproduce or observe the issue
+      placeholder: |
+        1. SSH into Contabo server
+        2. Check Ollama service status
+        3. Observe error
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: "What should happen"
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      placeholder: "What actually happens"

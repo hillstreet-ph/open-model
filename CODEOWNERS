@@ -1,0 +1,18 @@
+# CODEOWNERS - Ollama Infrastructure
+
+# All infrastructure files
+scripts/contabo/* @ollama-infra
+scripts/cron/* @ollama-infra
+scripts/workers/* @ollama-infra
+scripts/fixers/* @ollama-infra
+scripts/supabase/* @ollama-infra
+supabase/functions/* @ollama-infra
+
+# GitHub Actions workflows
+.github/workflows/*.yml @ollama-infra
+
+# Agent orchestration
+agent/* @ollama-infra
+
+# Rotation and self-improvement
+rotation-config.json @ollama-infra

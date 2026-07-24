@@ -58,3 +58,105 @@ REST API: `https://olhtxibbyhucxcmhzblq.supabase.co/rest/v1/`
 - `.github/workflows/deploy-contabo.yml` - Contabo-specific deployment and setup workflow
 - `.github/workflows/contabo-setup.yml` - One-shot interactive server setup via GitHub Actions
 - `.github/workflows/ai-agent.yml` - Scheduled AI agent: health checks (every 15 min), code fixer (format/vet), Supabase sync, scheduled reports
+
+
+## Autonomous Operations
+
+### Hermes AI Agent Team
+The Hermes agent team provides autonomous orchestration of all infrastructure operations:
+
+| Agent | Role | Interval | Priority |
+|-------|------|----------|----------|
+| hermes-health | Health monitoring | 5 min | 1 |
+| hermes-fix | Self-healing | Event-driven | 0 |
+| hermes-rotate | Model rotation | 24h | 2 |
+| hermes-sync | Data sync to Supabase | 6h | 3 |
+| hermes-report | Operational reporting | Daily | 4 |
+
+Run the agent team:
+```sh
+# Run all agents in continuous loop (on the Contabo server)
+python3 agent/hermes_orchestrator.py
+
+# Run a single agent
+python3 agent/hermes_orchestrator.py hermes-fix
+```
+
+### Self-Improvement System
+Automatically identifies issues and applies fixes:
+```sh
+# Run one improvement cycle
+python3 scripts/fixers/self_improvement.py cycle
+
+# Continuous self-improvement loop
+python3 scripts/fixers/self_improvement.py loop
+
+# Just collect metrics
+python3 scripts/fixers/self_improvement.py metrics
+```
+
+### Autopilot (Autonomous DevOps)
+Continuous autonomous monitoring and remediation:
+```sh
+# Run one autopilot cycle
+python3 scripts/fixers/autopilot.py cycle
+
+# Continuous autonomous mode
+python3 scripts/fixers/autopilot.py continuous
+
+# Check current status
+python3 scripts/fixers/autopilot.py status
+```
+
+### AI Model Auto-Rotation
+Models are automatically rotated based on the configuration in `rotation-config.json`:
+- Preferred models are prioritized
+- Stale models are flagged after 30 days
+- Models with low usage (< 100 requests/week) are candidates for deprecation
+- Rotation runs daily at 3 AM via cron
+
+## Project Boards (Kanban)
+
+### Infrastructure Operations (INFRA)
+- Tracks all server, deployment, and infrastructure tasks
+- Columns: Backlog -> In Progress -> Review -> Done
+
+### Model Operations (MODELS)
+- Tracks AI model lifecycle: deployment, evaluation, rotation, deprecation
+- Columns: Queued -> Active -> Evaluating -> Rotating -> Deprecated
+
+### Incident Response (INCIDENTS)
+- Tracks alerts, self-healing events, and remediation
+- Columns: Detected -> Investigating -> Mitigating -> Resolved
+
+Automation rules in `.github/workflows/kanban.yml` manage board updates and incident creation.
+
+## Enterprise DevOps
+
+### Key Features
+- **Self-Healing**: Automatic service restart on failure (3 retries before escalation)
+- **Disk Management**: Automatic cleanup when usage exceeds 85%
+- **Memory Management**: Automatic restart when usage exceeds 95%
+- **Model Lifecycle**: Automatic rotation based on usage and staleness
+- **Data Sync**: Continuous sync between Contabo server and Supabase
+- **Incident Response**: Automated issue creation on failure detection
+- **Operational Reporting**: Daily reports on system health and model status
+
+### Secrets Required (GitHub Secrets)
+| Secret | Description |
+|--------|-------------|
+| `CONTABO_SSH_PRIVATE_KEY` | SSH private key for Contabo server |
+| `SUPABASE_ACCESS_TOKEN` | Supabase personal access token |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key |
+| `CONTABO_CLIENT_ID` | Contabo API client ID |
+| `CONTABO_CLIENT_SECRET` | Contabo API client secret |
+
+### Quick Start (from scratch)
+1. Run `scripts/contabo/setup_ssh.sh` to generate SSH keys
+2. Deploy SSH key to Contabo server
+3. Run `scripts/contabo/setup_server.sh` to configure the server
+4. Run `scripts/contabo/deploy.sh` to deploy Ollama
+5. Run `scripts/contabo/setup_monitor.sh` to enable self-healing
+6. Run `scripts/cron/setup_cron.sh` to schedule automated tasks
+7. Run `scripts/contabo/install_models.sh` to pull AI models
+8. Run `scripts/supabase/setup.sh` to configure Supabase integration
