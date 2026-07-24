@@ -23,3 +23,7 @@ integration/testdata/models/
 __pycache__/
 *.pyc
 verify_output/
+
+# Deployment docs (local reference, do not commit secrets)
+DEPLOYMENT_READY.md
+GITHUB_SECRETS.md
