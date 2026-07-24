@@ -64,10 +64,10 @@ run_test "verify_deployment.sh exists" "test -f scripts/contabo/verify_deploymen
 echo ""
 echo "--- Python Syntax Tests ---"
 
-run_test "agent_fixer.py syntax" "python3 -c "import ast; ast.parse(open('scripts/fixers/agent_fixer.py').read())""
-run_test "self_improvement.py syntax" "python3 -c "import ast; ast.parse(open('scripts/fixers/self_improvement.py').read())""
-run_test "autopilot.py syntax" "python3 -c "import ast; ast.parse(open('scripts/fixers/autopilot.py').read())""
-run_test "hermes_orchestrator.py syntax" "python3 -c "import ast; ast.parse(open('agent/hermes_orchestrator.py').read())""
+run_test "agent_fixer.py syntax" "python3 -m py_compile scripts/fixers/agent_fixer.py"
+run_test "self_improvement.py syntax" "python3 -m py_compile scripts/fixers/self_improvement.py"
+run_test "autopilot.py syntax" "python3 -m py_compile scripts/fixers/autopilot.py"
+run_test "hermes_orchestrator.py syntax" "python3 -m py_compile agent/hermes_orchestrator.py"
 
 echo ""
 echo "--- Shell Script Shebang Tests ---"
