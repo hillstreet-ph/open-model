@@ -161,3 +161,6 @@ log "  - hermes-report: Daily summary"
 log "  - self_improvement.py: Continuous optimization loop"
 log "  - autopilot.py: Autonomous DevOps (cycle/continuous)"
 log "================================================"
+
+# Install Python dependencies
+pip3 install -r scripts/fixers/requirements.txt 2>/dev/null || echo 'Skipping pip install (not available locally)'

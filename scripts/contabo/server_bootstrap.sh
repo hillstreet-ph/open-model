@@ -400,3 +400,6 @@ log "Logs: /var/log/ollama.log"
 log "Monitor logs: /var/log/ollama-monitor.log"
 log "Bootstrap log: ${LOG}"
 log "================================================"
+
+# Install Python dependencies
+pip3 install requests jq 2>/dev/null || true
