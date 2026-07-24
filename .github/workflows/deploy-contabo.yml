@@ -52,5 +52,11 @@ jobs:
           command_timeout: 25m
           script_stop: true
           script: |
+            set -eu
             export REVISION
-            /opt/open-model/current/deploy/scripts/deploy.sh
+            runner_dir="$(mktemp -d)"
+            trap 'rm -rf "$runner_dir"' EXIT
+            git clone --filter=blob:none https://github.com/hillstreet-ph/open-model.git "$runner_dir"
+            git -C "$runner_dir" fetch --depth=1 origin "$REVISION"
+            git -C "$runner_dir" checkout --detach FETCH_HEAD
+            bash "$runner_dir/deploy/scripts/deploy.sh"
