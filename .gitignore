@@ -19,3 +19,6 @@ integration/testdata/models/
 
 .supabase.env
 .supabase/
+
+__pycache__/
+*.pyc
