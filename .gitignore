@@ -22,3 +22,4 @@ integration/testdata/models/
 
 __pycache__/
 *.pyc
+verify_output/

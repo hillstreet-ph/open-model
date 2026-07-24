@@ -61,7 +61,10 @@ WantedBy=multi-user.target
 EOF"
 
 ${SSH} "systemctl daemon-reload"
-${SSH} "systemctl enable ollama --now"
+${SSH} "systemctl enable ollama --now
+
+echo "--- Restarting Ollama service ---"
+${SSH} "systemctl restart ollama""
 
 echo "--- Deploying monitor script ---"
 ${SSH} "mkdir -p /opt/ollama/scripts && chown -R ollama:ollama /opt/ollama/scripts"
