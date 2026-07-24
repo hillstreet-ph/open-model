@@ -1,6 +1,5 @@
 {
   admin off
-  email {$ACME_EMAIL:off}
 }
 
 {$MODEL_DOMAIN:localhost} {
