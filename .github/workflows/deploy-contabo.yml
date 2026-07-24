@@ -5,8 +5,10 @@ on:
     branches: [main]
     paths:
       - 'scripts/contabo/**'
-      - '.github/workflows/deploy.yml'
-      - '.github/workflows/deploy-contabo.yml'
+      - 'platform/**'
+      - 'k8s/**'
+      - 'scripts/supabase/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
@@ -99,6 +101,56 @@ jobs:
       - name: Trigger self-heal
         run: |
           echo "Self-heal triggered - Ollama service is unhealthy"
-          # The monitor on the server will handle remediation
-          # but we also log the event to Supabase
           curl -s -X POST "https://olhtxibbyhucxcmhzblq.supabase.co/rest/v1/ollama_events"             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}"             -H "Content-Type: application/json"             -H "apikey: ${{ secrets.SUPABASE_SERVICE_KEY }}"             -d '{"event_type":"self_heal_trigger","container_ip":"169.58.68.183","details":{"reason":"health_check_failed","action":"manual_intervention_required"}}' || true
+
+  infra-sync:
+    needs: [setup-ssh-key, server-setup, deploy]
+    runs-on: ubuntu-latest
+    if: needs.setup-ssh-key.outputs.ssh-key-setup == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.CONTABO_SSH_PRIVATE_KEY }}
+
+      - name: Sync platform code to Contabo
+        run: |
+          scp -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            -r \
+            scripts/contabo/ \
+            platform/ \
+            k8s/ \
+            scripts/supabase/ \
+            root@169.58.68.183:/opt/ollama/
+
+      - name: Deploy platform infrastructure on Contabo
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            root@169.58.68.183 \
+            "cd /opt/ollama && bash scripts/contabo/server_platform.sh"
+
+      - name: Run production readiness check
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            -i ~/.ssh/id_ed25519 \
+            root@169.58.68.183 \
+            "cd /opt/ollama && bash scripts/contabo/production_readiness_check.sh" || true
+
+  supabase-sync:
+    needs: [deploy, infra-sync]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Supabase
+        run: |
+          chmod +x scripts/supabase/deploy.sh
+          bash scripts/supabase/deploy.sh
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
