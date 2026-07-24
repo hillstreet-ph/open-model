@@ -1,0 +1,67 @@
+# Ollama Configuration for Multi-Fork Platform
+# Supports Open Connect (Web UI Fork) and Open Command (SwarmClaw Fork)
+# and Open Worker (Hermes Agent Fork)
+
+[server]
+host = "0.0.0.0:11434"
+origins = ["*"]
+keep_alive = "24h"
+num_gpu = 0
+
+[model]
+default_model = "llama3"
+num_ctx = 4096
+num_predict = 2048
+temperature = 0.7
+top_p = 0.9
+repeat_penalty = 1.1
+
+[api]
+timeout = 120s
+max_connections = 100
+
+[logging]
+level = "info"
+format = "json"
+file = "/var/log/ollama/server.log"
+
+[openconnect]
+enabled = true
+url = "http://localhost:3000"
+api_bridge_url = "http://localhost:8000"
+model = "llama3"
+
+[opencommand]
+enabled = true
+url = "http://localhost:5000"
+swarm_mode = true
+agent_types = ["coder", "debugger", "planner", "reviewer", "researcher"]
+model = "codellama"
+
+[openworker]
+enabled = true
+url = "http://localhost:6000"
+worker_types = ["executor", "reviewer", "formatter", "validator", "optimizer"]
+model = "phi3"
+
+[orchestrator]
+enabled = true
+url = "http://localhost:8080"
+health_check_interval = "60s"
+auto_scale = true
+max_replicas = 6
+
+[cross_platform]
+enabled = true
+bridge_url = "http://localhost:8443"
+task_pipeline_url = "http://localhost:8444"
+swarm_coordinator_url = "http://localhost:8445"
+
+[supabase]
+enabled = true
+url = "https://olhtxibbyhucxcmhzblq.supabase.co"
+realtime_enabled = true
+storage_enabled = true
+events_table = "ollama_events"
+models_table = "ollama_models"
+sessions_table = "ollama_sessions"
