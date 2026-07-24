@@ -4,7 +4,8 @@ set -Eeuo pipefail
 REPOSITORY="${REPOSITORY:-https://github.com/hillstreet-ph/open-model.git}"
 REVISION="${REVISION:?REVISION is required}"
 ROOT=/opt/open-model
-RELEASE="${ROOT}/releases/${REVISION}"
+SAFE_REVISION="${REVISION//\//-}"
+RELEASE="${ROOT}/releases/${SAFE_REVISION}"
 
 mkdir -p "${ROOT}/releases"
 if [[ ! -d "${RELEASE}/.git" ]]; then
@@ -13,7 +14,6 @@ fi
 git -C "${RELEASE}" fetch --depth=1 origin "${REVISION}"
 git -C "${RELEASE}" checkout --detach FETCH_HEAD
 ln -sfn "${ROOT}/shared/.env" "${RELEASE}/deploy/.env"
-ln -sfn "${RELEASE}" "${ROOT}/current"
 
 cd "${RELEASE}/deploy"
 docker compose config --quiet
@@ -26,7 +26,8 @@ if [[ -n "${DEFAULT_MODEL}" ]]; then
   docker compose exec -T ollama ollama pull "${DEFAULT_MODEL}"
 fi
 
-curl --fail --silent --show-error http://127.0.0.1/api/tags >/dev/null
+docker compose exec -T caddy wget -qO- http://ollama:11434/api/tags >/dev/null
+ln -sfn "${RELEASE}" "${ROOT}/current"
 find "${ROOT}/releases" -mindepth 1 -maxdepth 1 -type d ! -path "${RELEASE}" -printf '%T@ %p\n' |
   sort -nr | tail -n +4 | cut -d' ' -f2- | xargs -r rm -rf --
 echo "Deployed ${REVISION}"
