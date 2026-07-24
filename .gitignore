@@ -19,6 +19,7 @@ integration/testdata/models/
 
 .supabase.env
 .supabase/
+.contabo.env
 
 __pycache__/
 *.pyc
