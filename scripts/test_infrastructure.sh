@@ -88,7 +88,7 @@ done
 echo ""
 echo "--- JSON Validation Tests ---"
 
-run_test "rotation-config.json valid JSON" "python3 -c "import json; json.load(open('rotation-config.json'))""
+run_test "rotation-config.json valid JSON" "python3 -m json.tool rotation-config.json > /dev/null"
 
 echo ""
 echo "--- Shell Script Error Handling Tests ---"
