@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  open-connect:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-connect
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=open-connect-platform-key
+      - WEBUI_AUTH_TRUSTED_EMAIL_HEADER=X-Forwarded-User
+      - WEBUI_AUTH_TRUSTED_NAME_HEADER=X-Forwarded-Name
+      - MAX_CHAT_COUNT=100
+      - MAX_UPLOAD_SIZE=100M
+      - WEBUI_FRONTEND_BUILD_MODE=production
+    volumes:
+      - open-connect-data:/app/backend/data
+      - open-connect-cache:/app/backend/cache
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-platform
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama-models:/root/.ollama/models
+      - ollama-cache:/root/.ollama/cache
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+    networks:
+      - open-platform
+
+  open-connect-worker:
+    image: python:3.11-slim
+    container_name: open-connect-worker
+    restart: unless-stopped
+    command: >
+      sh -c "
+      pip install requests aiohttp &&
+      python /app/worker.py
+      "
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - PLATFORM_URL=http://open-connect:3000
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - SUPABASE_KEY=$$SUPABASE_SERVICE_KEY
+    volumes:
+      - ./worker.py:/app/worker.py
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+volumes:
+  open-connect-data:
+    driver: local
+  open-connect-cache:
+    driver: local
+  ollama-models:
+    driver: local
+  ollama-cache:
+    driver: local
+
+networks:
+  open-platform:
+    driver: bridge

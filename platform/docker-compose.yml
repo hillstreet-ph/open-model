@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  platform-orchestrator:
+    build: .
+    container_name: open-platform-orchestrator
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "5000:5000"
+      - "6000:6000"
+    environment:
+      - PLATFORM_MODE=multi-project
+      - OPEN_CONNECT_URL=http://open-connect:3000
+      - OPEN_COMMAND_URL=http://open-command:5000
+      - OPEN_WORKER_URL=http://open-worker:6000
+      - OLLAMA_URL=http://ollama-platform:11434
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - SUPABASE_KEY=$$SUPABASE_SERVICE_KEY
+      - CONTABO_IP=169.58.68.183
+      - AUTO_SCALE=true
+      - LOG_LEVEL=INFO
+    volumes:
+      - platform-data:/app/data
+      - platform-config:/app/config
+      - platform-logs:/app/logs
+    depends_on:
+      - open-connect
+      - open-command
+      - open-worker
+      - ollama
+    networks:
+      - open-platform
+
+  open-connect:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-connect-platform
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama-platform:11434
+      - WEBUI_SECRET_KEY=open-platform-key
+      - MAX_CHAT_COUNT=100
+    volumes:
+      - open-connect-data:/app/backend/data
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+  open-command:
+    build: ./platform/open-command
+    container_name: open-command-platform
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_URL=http://ollama-platform:11434
+      - SWARM_MODE=true
+    volumes:
+      - open-command-data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+  open-worker:
+    build: ./platform/open-worker
+    container_name: open-worker-platform
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - OLLAMA_URL=http://ollama-platform:11434
+      - WORKER_MODE=true
+    volumes:
+      - open-worker-data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-platform-hub
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama-models:/root/.ollama/models
+      - ollama-cache:/root/.ollama/cache
+    deploy:
+      resources:
+        reservations:
+          memory: 8G
+    networks:
+      - open-platform
+
+volumes:
+  platform-data:
+  platform-config:
+  platform-logs:
+  open-connect-data:
+  open-command-data:
+  open-worker-data:
+  ollama-models:
+  ollama-cache:
+
+networks:
+  open-platform:
+    driver: bridge

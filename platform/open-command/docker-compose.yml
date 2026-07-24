@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  open-command:
+    build: .
+    container_name: open-command-platform
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    environment:
+      - OLLAMA_URL=http://ollama-platform:11434
+      - SWARM_MODE=true
+      - MAX_AGENTS=10
+      - AGENT_HEARTBEAT=30
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - SUPABASE_KEY=$$SUPABASE_SERVICE_KEY
+      - CONTABO_IP=169.58.68.183
+    volumes:
+      - open-command-data:/app/data
+      - open-command-config:/app/config
+      - ./agents:/app/agents
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-platform-swarm
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama-models-swarm:/root/.ollama/models
+      - ollama-cache-swarm:/root/.ollama/cache
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+    networks:
+      - open-platform
+
+  command-center:
+    build: .
+    container_name: open-command-center
+    restart: unless-stopped
+    command: python3 /app/command_center.py
+    environment:
+      - OLLAMA_URL=http://ollama-platform-swarm:11434
+      - SWARM_MODE=true
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./agents:/app/agents
+      - open-command-data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+volumes:
+  open-command-data:
+  open-command-config:
+  ollama-models-swarm:
+  ollama-cache-swarm:
+
+networks:
+  open-platform:
+    driver: bridge

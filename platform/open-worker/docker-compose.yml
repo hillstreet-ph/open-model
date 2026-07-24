@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  open-worker:
+    build: .
+    container_name: open-worker-platform
+    restart: unless-stopped
+    ports:
+      - "6000:6000"
+      - "6001:6001"
+    environment:
+      - OLLAMA_URL=http://ollama-platform-worker:11434
+      - WORKER_MODE=true
+      - MAX_WORKERS=5
+      - WORKER_HEARTBEAT=60
+      - SUPABASE_URL=https://olhtxibbyhucxcmhzblq.supabase.co
+      - SUPABASE_KEY=$$SUPABASE_SERVICE_KEY
+      - CONTABO_IP=169.58.68.183
+      - AUTO_SCALE=true
+      - TASK_QUEUE=default
+    volumes:
+      - open-worker-data:/app/data
+      - open-worker-logs:/app/logs
+      - open-worker-config:/app/config
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-platform-worker
+    restart: unless-stopped
+    ports:
+      - "11435:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama-models-worker:/root/.ollama/models
+      - ollama-cache-worker:/root/.ollama/cache
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+    networks:
+      - open-platform
+
+  worker-manager:
+    build: .
+    container_name: open-worker-manager
+    restart: unless-stopped
+    command: python3 /app/worker_manager.py
+    environment:
+      - OLLAMA_URL=http://ollama-platform-worker:11434
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./worker_config.py:/app/worker_config.py
+      - open-worker-data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - open-platform
+
+volumes:
+  open-worker-data:
+  open-worker-logs:
+  open-worker-config:
+  ollama-models-worker:
+  ollama-cache-worker:
+
+networks:
+  open-platform:
+    driver: bridge

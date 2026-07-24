@@ -160,3 +160,53 @@ Automation rules in `.github/workflows/kanban.yml` manage board updates and inci
 6. Run `scripts/cron/setup_cron.sh` to schedule automated tasks
 7. Run `scripts/contabo/install_models.sh` to pull AI models
 8. Run `scripts/supabase/setup.sh` to configure Supabase integration
+
+## Multi-Project Platform
+
+The Ollama infrastructure serves as a platform for multiple projects:
+
+### Open Connect (Open Web UI Fork)
+- **Port**: 3000 (Chat UI) / 8000 (API Bridge)
+- **Description**: Open Web UI integration for conversational AI
+- **Docker**: `platform/open-connect/docker-compose.yml`
+- **API Bridge**: `platform/open-connect/api_bridge.py`
+- **Worker**: `platform/open-connect/worker.py`
+
+### Open Command (SwarmClaw Fork)
+- **Port**: 5000 (API) / 8000 (Docker)
+- **Description**: Agent swarm orchestration for command execution
+- **Agent Types**: coder, debugger, planner, reviewer, researcher
+- **Docker**: `platform/open-command/docker-compose.yml`
+- **API Server**: `platform/open-command/api_server.py`
+- **Command Center**: `platform/open-command/command_center.py`
+
+### Open Worker (Hermes Agent Fork)
+- **Port**: 6000 (API) / 9000 (Docker)
+- **Description**: Automated worker agents for task execution
+- **Worker Types**: executor, reviewer, formatter, validator, optimizer
+- **Docker**: `platform/open-worker/docker-compose.yml`
+- **API Server**: `platform/open-worker/worker_api.py`
+- **Worker Manager**: `platform/open-worker/worker_manager.py`
+
+### Platform Orchestrator
+- **Port**: 8080
+- **Description**: Central orchestration managing all three projects
+- **Health monitoring**, task routing, platform scaling
+- **Docker**: `platform/docker-compose.yml`
+- **API**: `platform/api_server.py`
+
+### Deploy All Platforms
+```bash
+chmod +x scripts/contabo/server_platform.sh
+./scripts/contabo/server_platform.sh
+```
+
+### Platform API
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Platform overview |
+| `/platforms` | GET | All platform statuses |
+| `/task` | POST | Route task to a platform |
+| `/tasks/batch` | POST | Route batch tasks |
+| `/platform/{name}/status` | GET | Single platform status |
+| `/health` | GET | Health check |
