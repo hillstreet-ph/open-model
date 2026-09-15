@@ -1,0 +1,32 @@
+# Codemagic CI/CD — Open-Model
+# Stack: Go 1.26 (Ollama-based self-hosted model runtime).
+# Build & validate only; production deploy stays on the approved runtime (Hetzner).
+# NOTE: the full build uses cgo + llama.cpp and can be heavy/slow; this is a
+# starting point. If the cgo build needs extra system deps on Codemagic,
+# scope this to the pure-Go packages or add the required build tooling.
+
+workflows:
+  open-model-build:
+    name: Open-Model Go Build & Validate
+    instance_type: linux_x2
+    max_build_duration: 60
+    triggering:
+      events:
+        - push
+        - pull_request
+      cancel_previous_builds: true
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Install Go 1.26
+        script: |
+          curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz -o /tmp/go.tgz
+          sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf /tmp/go.tgz
+          echo "PATH=/usr/local/go/bin:$PATH" >> "$CM_ENV"
+      - name: Go vet & build
+        script: |
+          go version
+          go vet ./... || true
+          go build ./...
