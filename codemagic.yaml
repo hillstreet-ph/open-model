@@ -28,5 +28,5 @@ workflows:
       - name: Go vet & build
         script: |
           go version
-          go vet ./... || true
+          go vet ./...
           go build ./...
