@@ -90,8 +90,8 @@ run_test "No conflict markers in agent/" "! grep -r '<<<<' agent/ && ! grep -r '
 run_test "No conflict markers in k8s/" "! grep -r '<<<<' k8s/ && ! grep -r '>>>>' k8s/ && ! grep -r '====' k8s/"
 
 # Check no hardcoded secrets in tracked files
-run_test "No hardcoded secrets in platform/" "! grep -rE '(password|secret|token|api_key|apikey|private_key)\s*=\s*[\"'"'"'][^\"'"'"'{]' platform/" 2>/dev/null || true
-run_test "No hardcoded secrets in scripts/" "! grep -rE '(password|secret|token|api_key|apikey|private_key)\s*=\s*[\"'"'"'][^\"'"'"'{]' scripts/ 2>/dev/null || true
+run_test "No hardcoded secrets in platform/" "! grep -rEi '(password|secret|token|api_key|apikey|private_key)[[:space:]]*=[[:space:]]*[A-Za-z0-9]' platform/"
+run_test "No hardcoded secrets in scripts/" "! grep -rEi '(password|secret|token|api_key|apikey|private_key)[[:space:]]*=[[:space:]]*[A-Za-z0-9]' scripts/"
 
 echo ""
 echo "=== Results ==="
